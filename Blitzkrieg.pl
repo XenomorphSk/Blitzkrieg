@@ -28,7 +28,7 @@ ASCII
 my $ip;
 my $port;
 my $time;
-my $attack_type = 'udp';  # Pode ser 'udp', 'syn', ou 'mcpe'
+my $attack_type = 'udp';  
 
 GetOptions(
     'ip=s' => \$ip,
@@ -47,7 +47,7 @@ my $objeto = {
         host => $ip,
         authority => $ip
     },
-    _rpc => $time,  # usando o tempo como número de repetições
+    _rpc => $time,  
     _payload => 'GET / HTTP/1.1\r\n',
     randHeadercontent => 'User-Agent: Mozilla/5.0\r\n'
 };
@@ -309,4 +309,4 @@ sub GET {
 
 
 
-1;  # Finalizando o módulo
+1; 
